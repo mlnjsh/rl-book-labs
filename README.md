@@ -32,6 +32,39 @@ Each chapter has **two companions**:
 
 ## 📓 Colab Notebooks
 
+### 💻 How to Run the Notebooks
+
+The notebooks can be run in **three ways** — pick whichever you prefer:
+
+| Platform | How to Open | Setup Required |
+|----------|------------|----------------|
+| **Google Colab** | Click the "Open in Colab" badge above — runs instantly in your browser | None — everything pre-installed |
+| **VS Code** | Clone this repo → open `.ipynb` file → select Python kernel → run cells | Install Python + libraries (see below) |
+| **Jupyter Notebook / JupyterLab** | Clone this repo → `jupyter notebook` → open `.ipynb` file | Install Python + libraries (see below) |
+
+#### Running in VS Code
+1. Install the [Jupyter extension](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter) for VS Code
+2. Clone this repo:
+   ```bash
+   git clone https://github.com/mlnjsh/rl-book-labs.git
+   cd rl-book-labs
+   ```
+3. Install dependencies:
+   ```bash
+   pip install gymnasium numpy matplotlib seaborn pandas
+   ```
+4. Open any `.ipynb` file in VS Code → click **"Select Kernel"** → choose your Python environment → run cells with `Shift+Enter`
+
+#### Running in Jupyter Notebook
+1. Clone and install (same as above)
+2. Launch Jupyter:
+   ```bash
+   jupyter notebook
+   ```
+3. Navigate to the `.ipynb` file and open it
+
+---
+
 ### Ch2: MDP Environments Lab
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mlnjsh/rl-book-labs/blob/main/Ch2_MDP_Environments_Lab.ipynb)
 
@@ -62,15 +95,26 @@ Implement **3 core DP algorithms** and run them on all 7 environments:
 
 **What you'll do:** Animated convergence plots, PI vs VI comparison table, γ effect on convergence speed, stochastic policy comparison (5 slip values side by side).
 
+---
+
 ### 📦 Required Libraries
+
 ```
-gymnasium    - RL environments
+gymnasium    - RL environments (FrozenLake, etc.)
 numpy        - numerical computation
 matplotlib   - plotting and visualization
 seaborn      - heatmaps for value functions
 pandas       - data tables
 ```
-All pre-installed on Google Colab. Just click "Open in Colab" and run!
+
+**Quick install:**
+```bash
+pip install gymnasium numpy matplotlib seaborn pandas
+```
+
+> 💡 **Google Colab users:** All libraries are pre-installed. Just click "Open in Colab" and run — no setup needed!
+>
+> 💡 **VS Code / Jupyter users:** Run the install command above once, then you're good to go.
 
 ---
 
@@ -93,12 +137,12 @@ Step through PI on FrozenLake: **① One Eval Sweep** (cells light up blue), **�
 ```
 rl-book-labs/
 ├── README.md
-├── Ch2_MDP_Environments_Lab.ipynb      # 📓 Colab: 7 MDP environments
-├── Ch3_Dynamic_Programming_Lab.ipynb   # 📓 Colab: PI, VI, convergence
+├── Ch2_MDP_Environments_Lab.ipynb      # 📓 Notebook: 7 MDP environments
+├── Ch3_Dynamic_Programming_Lab.ipynb   # 📓 Notebook: PI, VI, convergence
 ├── ch2/
-│   └── index.html                      # 🌐 Web: MDP Explorer
+│   └── index.html                      # 🌐 Web App: MDP Explorer
 ├── ch3/
-│   └── index.html                      # 🌐 Web: Policy Iteration
+│   └── index.html                      # 🌐 Web App: Policy Iteration
 ├── ch4/                                # (coming soon)
 └── ch5/                                # (coming soon)
 ```
@@ -116,8 +160,8 @@ The only book that takes you from "What is a Markov Decision Process?" all the w
 - 🤖 **DeliBot** running example that grows with the theory
 - 🧠 **Think Like an Agent** boxes for building intuition
 - ⚠️ **Common Misconceptions** boxes to prevent errors
-- 🔬 **Interactive Labs** (this repo!) for hands-on learning
-- 📓 **Colab Notebooks** for coding along
+- 🔬 **Interactive Web Labs** for visual, hands-on learning
+- 📓 **Colab / VS Code / Jupyter Notebooks** for coding along
 - 📝 **Quizzes with detailed answer keys** for each chapter
 
 ---
