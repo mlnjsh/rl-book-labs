@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Policy Iteration on FrozenLake | RL Book Interactive Lab</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { min-height:100vh; background:linear-gradient(145deg,#0b0f1a 0%,#111827 40%,#0f172a 100%);
+    color:#e2e8f0; font-family:'SF Mono','Fira Code','Consolas',monospace; padding:16px; }
+  .header { text-align:center; margin-bottom:14px; }
+  .header .sub { font-size:10px; letter-spacing:5px; color:#64748b; text-transform:uppercase; }
+  .header h1 { font-size:24px; font-weight:900; margin:4px 0;
+    background:linear-gradient(135deg,#38bdf8,#818cf8,#c084fc);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .header .desc { font-size:11px; color:#64748b; }
+  .main { display:flex; gap:14px; max-width:1060px; margin:0 auto; flex-wrap:wrap; justify-content:center; }
+  .panel { background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.07);
+    border-radius:12px; padding:14px; margin-bottom:12px; }
+  .panel-title { font-size:9px; letter-spacing:3px; text-transform:uppercase; color:#64748b; margin-bottom:8px; }
+  .left, .right { width:210px; }
+  .center { flex:1; max-width:480px; min-width:300px; }
+  .slider { width:100%; accent-color:#818cf8; margin-bottom:8px; }
+  .label { font-size:11px; color:#94a3b8; margin-bottom:3px; }
+  .btn { padding:10px 0; width:100%; border:none; border-radius:8px; font-size:12px;
+    font-weight:700; cursor:pointer; color:#fff; margin-bottom:5px; letter-spacing:0.3px;
+    transition:all 0.2s; font-family:inherit; }
+  .btn:disabled { background:#1e293b !important; color:#475569; opacity:0.5; cursor:not-allowed; }
+  .btn-eval { background:linear-gradient(135deg,#1d4ed8,#3b82f6); }
+  .btn-eval2 { background:linear-gradient(135deg,#1e40af,#2563eb); }
+  .btn-improve { background:linear-gradient(135deg,#047857,#10b981); }
+  .btn-auto { background:linear-gradient(135deg,#6d28d9,#a855f7); }
+  .btn-robot { background:linear-gradient(135deg,#b45309,#f59e0b); }
+  .btn-reset { width:100%; padding:7px 0; border-radius:8px; border:1px solid rgba(255,255,255,0.08);
+    background:transparent; color:#94a3b8; font-size:11px; font-weight:600; cursor:pointer;
+    margin-top:2px; font-family:inherit; }
+  .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; padding:10px; }
+  .cell { aspect-ratio:1; border-radius:10px; position:relative; min-height:80px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    transition:all 0.25s ease; border:1px solid rgba(255,255,255,0.06); }
+  .cell-label { position:absolute; top:2px; left:4px; font-size:7px; color:#64748b; font-weight:700; }
+  .cell-value { position:absolute; bottom:2px; font-size:9px; font-weight:700; }
+  .cell-arrow { font-size:28px; font-weight:900; line-height:1; transition:all 0.4s; }
+  .legend { display:flex; gap:10px; margin-top:8px; justify-content:center; flex-wrap:wrap; }
+  .legend-item { display:flex; align-items:center; gap:3px; }
+  .legend-dot { width:8px; height:8px; border-radius:2px; }
+  .legend-text { font-size:8px; color:#64748b; }
+  .log-entry { padding:4px 7px; margin-bottom:3px; border-radius:5px; font-size:10px;
+    color:#94a3b8; line-height:1.4; }
+  .speed-btn { flex:1; padding:5px 0; border-radius:6px; font-size:12px; border:none; cursor:pointer;
+    font-family:inherit; }
+  .howto { background:rgba(124,58,237,0.04); border:1px solid rgba(124,58,237,0.12);
+    border-radius:10px; padding:12px; margin-top:10px; }
+  @keyframes robotPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.3)} }
+  .robot-emoji { font-size:30px; animation:robotPulse 0.4s ease;
+    filter:drop-shadow(0 0 10px rgba(245,158,11,0.7)); }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="sub">Chapter 3 · Interactive Lab</div>
+  <h1>Policy Iteration on FrozenLake</h1>
+  <div class="desc">Step through Evaluate → Improve → Watch 🤖 walk the grid</div>
+</div>
+<div class="main" id="app"></div>
+
+<script>
+const SIZE=4, ACTIONS=[0,1,2,3], ARROWS=["←","↓","→","↑"], DELTAS=[[0,-1],[1,0],[0,1],[-1,0]];
+const HOLES=new Set(["1,1","1,3","2,3","3,0"]);
+const isH=(r,c)=>HOLES.has(r+","+c), isG=(r,c)=>r===3&&c===3, isT=(r,c)=>isH(r,c)||isG(r,c);
+
+let gamma=0.95, slip=0.2, speed=200;
+let V=Array.from({length:4},()=>Array(4).fill(0));
+let policy=Array.from({length:4},()=>Array(4).fill(2));
+let phase="start", iter=0, sweepNum=0, converged=false, animating=false;
+let hlCell=null, changedSet=new Set(), logs=[], robotPos=null, robotTrail=[];
+
+function getTrans(r,c,a,sl){
+  if(isT(r,c)) return [{p:1,nr:r,nc:c,rew:0}];
+  const res=[];
+  for(const act of ACTIONS){
+    const prob=act===a?1-sl+sl/4:sl/4;
+    if(prob<1e-9) continue;
+    const [dr,dc]=DELTAS[act];
+    let nr=r+dr,nc=c+dc;
+    if(nr<0||nr>=SIZE||nc<0||nc>=SIZE){nr=r;nc=c;}
+    const rew=isG(nr,nc)?1:isH(nr,nc)?-1:-0.01;
+    res.push({p:prob,nr,nc,rew});
+  }
+  return res;
+}
+
+function evalSweep(v,pol,g,sl){
+  const nV=v.map(r=>[...r]); let d=0;
+  for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+    if(isT(r,c)) continue;
+    const old=nV[r][c];
+    nV[r][c]=getTrans(r,c,pol[r][c],sl).reduce((s,t)=>s+t.p*(t.rew+g*v[t.nr][t.nc]),0);
+    d=Math.max(d,Math.abs(old-nV[r][c]));
+  }
+  return {V:nV,delta:d};
+}
+
+function improve(v,pol,g,sl){
+  const nP=pol.map(r=>[...r]); let stable=true; const ch=[];
+  for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+    if(isT(r,c)) continue;
+    let bA=0,bV=-Infinity;
+    for(const a of ACTIONS){
+      const val=getTrans(r,c,a,sl).reduce((s,t)=>s+t.p*(t.rew+g*v[t.nr][t.nc]),0);
+      if(val>bV){bV=val;bA=a;}
+    }
+    if(bA!==pol[r][c]){stable=false;ch.push([r,c]);}
+    nP[r][c]=bA;
+  }
+  return {policy:nP,stable,changes:ch};
+}
+
+function addLog(type,msg){logs.unshift({type,msg});if(logs.length>40)logs.pop();render();}
+
+function vColor(v,mn,mx){
+  if(mx===mn) return "rgba(100,140,200,0.12)";
+  const t=Math.max(0,Math.min(1,(v-mn)/(mx-mn)));
+  return `rgba(${Math.round(220-180*t)},${Math.round(50+180*t)},${Math.round(60+60*t)},0.35)`;
+}
+
+// ① ONE SWEEP animated
+function doOneSweep(){
+  if(animating||converged||phase==="evaluated") return;
+  animating=true; render();
+  const cells=[];
+  for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++) if(!isT(r,c)) cells.push([r,c]);
+  let idx=0, curV=V.map(r=>[...r]), maxD=0;
+  function tick(){
+    if(idx>=cells.length){
+      hlCell=null; sweepNum++; phase="evaluated"; animating=false;
+      addLog("eval","Sweep "+sweepNum+" · Δ="+maxD.toFixed(5)); return;
+    }
+    const [r,c]=cells[idx]; hlCell=[r,c];
+    const old=curV[r][c];
+    curV[r][c]=getTrans(r,c,policy[r][c],slip).reduce((s,t)=>s+t.p*(t.rew+gamma*curV[t.nr][t.nc]),0);
+    maxD=Math.max(maxD,Math.abs(old-curV[r][c]));
+    V=curV.map(r=>[...r]); idx++; render();
+    setTimeout(tick,speed);
+  }
+  tick();
+}
+
+// ① FULL EVAL
+function doFullEval(){
+  if(animating||converged||phase==="evaluated") return;
+  animating=true; render();
+  let curV=V.map(r=>[...r]), sw=0;
+  function tick(){
+    const res=evalSweep(curV,policy,gamma,slip); curV=res.V; sw++; sweepNum++;
+    V=curV.map(r=>[...r]);
+    if(res.delta<1e-6||sw>300){
+      phase="evaluated"; animating=false;
+      addLog("eval","Evaluated in "+sw+" sweeps · Δ="+res.delta.toFixed(8)); return;
+    }
+    render(); setTimeout(tick,30);
+  }
+  tick();
+}
+
+// ② IMPROVE animated
+function doImprove(){
+  if(animating||converged||phase!=="evaluated") return;
+  const res=improve(V,policy,gamma,slip);
+  if(res.stable){
+    policy=res.policy; iter++; converged=true; phase="converged";
+    addLog("done","✓ π* found in "+iter+" iterations!"); return;
+  }
+  animating=true; let idx=0;
+  function tick(){
+    if(idx>=res.changes.length){
+      hlCell=null; changedSet=new Set(); iter++; phase="start"; animating=false;
+      addLog("improve","Improved: "+res.changes.length+" arrows changed"); return;
+    }
+    const [r,c]=res.changes[idx]; hlCell=[r,c];
+    changedSet.add(r+","+c);
+    policy[r][c]=res.policy[r][c]; idx++; render();
+    setTimeout(tick,speed);
+  }
+  tick();
+}
+
+// ▶▶ AUTO
+function doAuto(){
+  if(animating||converged) return;
+  animating=true; render();
+  function piStep(){
+    let sw=0,d=Infinity,v=V.map(r=>[...r]);
+    while(d>1e-6&&sw<300){const res=evalSweep(v,policy,gamma,slip);v=res.V;d=res.delta;sw++;}
+    V=v; sweepNum+=sw;
+    const res=improve(V,policy,gamma,slip); iter++; policy=res.policy;
+    addLog(res.stable?"done":"improve","Iter "+iter+": "+sw+" sweeps, "+res.changes.length+" changes"+(res.stable?" → π*!":""));
+    render();
+    if(res.stable){converged=true;phase="converged";animating=false;render();return;}
+    setTimeout(piStep,400);
+  }
+  piStep();
+}
+
+// 🤖 ROBOT
+function doRobot(){
+  if(animating) return;
+  animating=true;
+  let r=0,c=0; robotTrail=[[0,0]]; robotPos=[0,0]; let steps=0; render();
+  function tick(){
+    if(isT(r,c)||steps>40){
+      const won=isG(r,c);
+      addLog(won?"done":"fail","🤖 "+(won?"🎉 Reached GOAL!":"💀 Fell in hole!")+" ("+steps+" steps)");
+      setTimeout(()=>{robotPos=null;robotTrail=[];animating=false;render();},1500);
+      return;
+    }
+    const a=policy[r][c], ts=getTrans(r,c,a,slip);
+    const rand=Math.random(); let cum=0;
+    for(const t of ts){cum+=t.p;if(rand<cum){r=t.nr;c=t.nc;break;}}
+    steps++; robotTrail.push([r,c]); robotPos=[r,c]; render();
+    setTimeout(tick,450);
+  }
+  setTimeout(tick,450);
+}
+
+function resetAll(){
+  V=Array.from({length:4},()=>Array(4).fill(0));
+  policy=Array.from({length:4},()=>Array(4).fill(2));
+  phase="start";iter=0;sweepNum=0;converged=false;animating=false;
+  hlCell=null;changedSet=new Set();logs=[];robotPos=null;robotTrail=[];render();
+}
+
+function render(){
+  const flat=V.flat(), mn=Math.min(...flat), mx=Math.max(...flat);
+  const trailS=new Set(robotTrail.map(([r,c])=>r+","+c));
+  
+  let gridHTML="";
+  for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+    const hole=isH(r,c),goal=isG(r,c),start=r===0&&c===0;
+    const hl=hlCell&&hlCell[0]===r&&hlCell[1]===c;
+    const chg=changedSet.has(r+","+c);
+    const hasBot=robotPos&&robotPos[0]===r&&robotPos[1]===c;
+    const onTrail=trailS.has(r+","+c)&&!hasBot;
+    const v=V[r][c];
+    const bg=hole?"rgba(239,68,68,0.12)":goal?"rgba(16,185,129,0.15)"
+      :hl?"rgba(129,140,248,0.3)":chg?"rgba(16,185,129,0.2)"
+      :onTrail?"rgba(245,158,11,0.08)":vColor(v,mn,mx);
+    const brd=hasBot?"2.5px solid #f59e0b":hl?"2px solid #818cf8"
+      :chg?"2px solid #10b981":"1px solid rgba(255,255,255,0.06)";
+    const shd=hasBot?"0 0 24px rgba(245,158,11,0.5)"
+      :hl?"0 0 16px rgba(129,140,248,0.4)":chg?"0 0 12px rgba(16,185,129,0.3)":"none";
+    const lbl=start&&!hasBot?"S":goal?"G":hole?"H":"";
+    const vCol=v>0.01?"#86efac":v<-0.01?"#fca5a5":"#64748b";
+    let content="";
+    if(hasBot) content='<div class="robot-emoji">🤖</div>';
+    else if(hole) content='<div style="font-size:22px">🕳️</div>';
+    else if(goal) content='<div style="font-size:22px">🏆</div>';
+    else content='<div class="cell-arrow" style="color:'+(converged?"#34d399":chg?"#86efac":"#818cf8")
+      +';text-shadow:'+(converged?"0 0 14px rgba(52,211,153,0.5)":"none")+'">'+ARROWS[policy[r][c]]+'</div>';
+    const valHTML=hole?"":'<div class="cell-value" style="color:'+vCol+'">'+v.toFixed(3)+'</div>';
+    gridHTML+='<div class="cell" style="background:'+bg+';border:'+brd+';box-shadow:'+shd+'">'
+      +'<div class="cell-label">'+lbl+'</div>'+content+valHTML+'</div>';
+  }
+
+  let logHTML="";
+  if(logs.length===0) logHTML='<div style="font-size:10px;color:#475569;font-style:italic">Waiting...</div>';
+  else logs.forEach(l=>{
+    const bc=l.type==="done"?"#10b981":l.type==="fail"?"#ef4444":l.type==="improve"?"#10b981":"#3b82f6";
+    const bg2=l.type==="done"?"rgba(16,185,129,0.08)":l.type==="fail"?"rgba(239,68,68,0.08)"
+      :l.type==="improve"?"rgba(16,185,129,0.05)":"rgba(59,130,246,0.05)";
+    logHTML+='<div class="log-entry" style="background:'+bg2+';border-left:3px solid '+bc+'">'+l.msg+'</div>';
+  });
+
+  const dis=v=>v?'disabled':'';
+  const statusColor=converged?"#10b981":animating?"#818cf8":"#e2e8f0";
+  const statusText=converged?"π* Found!":animating?"Animating...":iter===0?"Ready":"Iter "+iter;
+  const phaseText=phase==="start"&&!converged?"Press ① to evaluate"
+    :phase==="evaluated"?"✓ Evaluated → Press ②"
+    :phase==="converged"?"🎉 Press 🤖 to test!":"";
+
+  document.getElementById("app").innerHTML=`
+  <div class="left">
+    <div class="panel">
+      <div class="panel-title">Parameters</div>
+      <div class="label">γ = ${gamma.toFixed(2)}</div>
+      <input type="range" class="slider" min="0.1" max="0.99" step="0.01" value="${gamma}" oninput="gamma=+this.value;resetAll()">
+      <div class="label">Slip = ${slip.toFixed(2)}</div>
+      <input type="range" class="slider" min="0" max="0.5" step="0.05" value="${slip}" oninput="slip=+this.value;resetAll()">
+      <div style="font-size:9px;color:#475569">0=deterministic · 0.33=classic</div>
+      <div class="label" style="margin-top:8px">Speed</div>
+      <div style="display:flex;gap:3px">
+        <button class="speed-btn" onclick="speed=450;render()" style="background:${speed===450?"rgba(129,140,248,0.2)":"rgba(255,255,255,0.03)"};color:${speed===450?"#a5b4fc":"#64748b"}">🐢</button>
+        <button class="speed-btn" onclick="speed=200;render()" style="background:${speed===200?"rgba(129,140,248,0.2)":"rgba(255,255,255,0.03)"};color:${speed===200?"#a5b4fc":"#64748b"}">🚶</button>
+        <button class="speed-btn" onclick="speed=60;render()" style="background:${speed===60?"rgba(129,140,248,0.2)":"rgba(255,255,255,0.03)"};color:${speed===60?"#a5b4fc":"#64748b"}">⚡</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Step-by-Step</div>
+      <button class="btn btn-eval" onclick="doOneSweep()" ${dis(animating||converged||phase==="evaluated")}>① One Eval Sweep</button>
+      <button class="btn btn-eval2" onclick="doFullEval()" ${dis(animating||converged||phase==="evaluated")}>① Full Evaluation</button>
+      <button class="btn btn-improve" onclick="doImprove()" ${dis(animating||converged||phase!=="evaluated")}>② Improve Policy</button>
+      <div style="height:1px;background:rgba(255,255,255,0.06);margin:4px 0"></div>
+      <button class="btn btn-auto" onclick="doAuto()" ${dis(animating||converged)}>▶▶ Auto-Run Full PI</button>
+      <div style="height:1px;background:rgba(255,255,255,0.06);margin:4px 0"></div>
+      <button class="btn btn-robot" onclick="doRobot()" ${dis(animating)}>🤖 Run Robot!</button>
+      <button class="btn-reset" onclick="resetAll()">↺ Reset</button>
+    </div>
+    <div class="panel" style="border-color:${converged?"rgba(16,185,129,0.3)":"rgba(255,255,255,0.07)"}">
+      <div class="panel-title">Status</div>
+      <div style="font-size:18px;font-weight:900;color:${statusColor}">${statusText}</div>
+      <div style="font-size:10px;color:#64748b;margin-top:3px">${phaseText}</div>
+      <div style="font-size:9px;color:#475569;margin-top:3px">Sweeps: ${sweepNum} · Iterations: ${iter}</div>
+    </div>
+  </div>
+  <div class="center">
+    <div class="panel" style="padding:0">
+      <div class="panel-title" style="padding:12px 12px 0">FrozenLake 4×4</div>
+      <div class="grid">${gridHTML}</div>
+      <div class="legend" style="padding:0 10px 10px">
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(129,140,248,0.4)"></div><span class="legend-text">Evaluating</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(16,185,129,0.4)"></div><span class="legend-text">Changed</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(245,158,11,0.5)"></div><span class="legend-text">Robot</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(239,68,68,0.3)"></div><span class="legend-text">Hole</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(16,185,129,0.3)"></div><span class="legend-text">Goal</span></div>
+      </div>
+    </div>
+    <div class="howto">
+      <div style="font-size:9px;letter-spacing:2px;color:#a855f7;text-transform:uppercase;margin-bottom:4px">How It Works</div>
+      <div style="font-size:10px;color:#c4b5fd;line-height:1.6">
+        <b style="color:#60a5fa">① Evaluate</b> — Watch each cell light up blue as Bellman equation computes V<sup>π</sup>(s).<br>
+        <b style="color:#34d399">② Improve</b> — Arrows change to highest Q-value action. Green flash = changed.<br>
+        <b style="color:#f59e0b">🤖 Robot</b> — Follows policy step by step. Goal 🏆 or hole 🕳️?
+      </div>
+    </div>
+  </div>
+  <div class="right">
+    <div class="panel">
+      <div class="panel-title">Live Log</div>
+      <div style="max-height:280px;overflow-y:auto">${logHTML}</div>
+    </div>
+    <div class="panel" style="border-color:rgba(124,58,237,0.15)">
+      <div class="panel-title" style="color:#7c3aed">Bellman Equations</div>
+      <div style="font-size:10px;color:#c4b5fd;line-height:1.8">
+        <div style="margin-bottom:5px"><span style="color:#60a5fa;font-weight:700">Eval:</span><br>V(s) ← Σ<sub>a</sub> π(a|s) Σ p[r + γV(s')]</div>
+        <div><span style="color:#34d399;font-weight:700">Improve:</span><br>π(s) ← argmax<sub>a</sub> Σ p[r + γV(s')]</div>
+      </div>
+    </div>
+    <div class="panel" style="border-color:rgba(245,158,11,0.15)">
+      <div class="panel-title" style="color:#f59e0b">What to Try</div>
+      <div style="font-size:10px;color:#fbbf24;line-height:1.6">
+        1. Press ① One Sweep — watch cells light up<br>
+        2. Press ① again — values get more accurate<br>
+        3. Press ① Full Eval — converge V<sup>π</sup><br>
+        4. Press ② — watch arrows change!<br>
+        5. Repeat ①→② until π* found<br>
+        6. Press 🤖 — watch the robot go!<br>
+        7. Try γ=0.5 vs γ=0.99<br>
+        8. Try Slip=0 vs Slip=0.5
+      </div>
+    </div>
+  </div>`;
+}
+
+render();
+</script>
+</body>
+</html>
