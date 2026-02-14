@@ -1,6 +1,6 @@
 # 🎮 RL Book Interactive Labs
 
-**Companion interactive apps for [Complete Reinforcement Learning Journey: From Basics to RLHF]()**
+**Companion interactive apps & notebooks for [Complete Reinforcement Learning Journey: From Basics to RLHF]()**
 
 > *Don't just read about algorithms — watch them think.*
 
@@ -11,85 +11,80 @@
 
 ## 🧪 What Is This?
 
-Each chapter of the book has a companion **browser-based interactive lab** where you can:
-
-- 🔵 **Step through algorithms** cell-by-cell and see values update in real-time
-- 🎛️ **Tweak parameters** (γ, ε, learning rate) with sliders and instantly see the effect
-- 🤖 **Watch agents navigate** grids, solve problems, and learn from mistakes
-- 📊 **Inspect Q-values**, policy arrows, and convergence logs live
-
-**No installation required.** Open in any browser. Works on desktop and mobile.
+Each chapter has **two companions**:
+- 🌐 **Interactive Web App** — browser-based, no install, sliders + animations
+- 📓 **Colab Notebook** — full Python code, build environments, run algorithms, plot results
 
 ---
 
 ## 📚 Available Labs
 
-| Chapter | Lab | Concepts Covered | Try It |
-|---------|-----|-----------------|--------|
-| Ch 2 | **MDP Explorer** | States, Actions, Rewards, Transitions, Deterministic vs Stochastic, Policy, Value Function | [▶ Launch](https://mlnjsh.github.io/rl-book-labs/ch2/) |
-| Ch 3 | **Policy Iteration on FrozenLake** | Bellman equations, policy evaluation (sweep-by-sweep), policy improvement, convergence | [▶ Launch](https://mlnjsh.github.io/rl-book-labs/ch3/) |
-| Ch 4 | Monte Carlo Blackjack *(coming soon)* | First-visit MC, exploring starts, episode replay | — |
-| Ch 5 | TD Learning & SARSA *(coming soon)* | TD(0), SARSA, Q-learning, cliff walking | — |
-| Ch 6 | DQN on CartPole *(coming soon)* | Experience replay, target networks, training curves | — |
-| Ch 7 | Policy Gradients *(coming soon)* | REINFORCE, baselines, variance reduction | — |
+| Chapter | Web App | Colab Notebook | Concepts |
+|---------|---------|----------------|----------|
+| Ch 2: MDPs | [▶ MDP Explorer](https://mlnjsh.github.io/rl-book-labs/ch2/) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mlnjsh/rl-book-labs/blob/main/Ch2_MDP_Environments_Lab.ipynb) | States, Actions, Rewards, Transitions, Deterministic vs Stochastic |
+| Ch 3: DP | [▶ Policy Iteration](https://mlnjsh.github.io/rl-book-labs/ch3/) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mlnjsh/rl-book-labs/blob/main/Ch3_Dynamic_Programming_Lab.ipynb) | Policy Evaluation, Policy Iteration, Value Iteration, Convergence |
+| Ch 4 | *coming soon* | *coming soon* | Monte Carlo Methods |
+| Ch 5 | *coming soon* | *coming soon* | TD Learning, SARSA, Q-Learning |
+| Ch 6 | *coming soon* | *coming soon* | Deep RL, DQN |
+| Ch 7 | *coming soon* | *coming soon* | Policy Gradients, RLHF |
 
 ---
 
-## 🌐 Ch2: MDP Explorer
+## 📓 Colab Notebooks
 
-**Understand the building blocks of every RL algorithm.** Explore a 5×5 Gridworld MDP interactively.
+### Ch2: MDP Environments Lab
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mlnjsh/rl-book-labs/blob/main/Ch2_MDP_Environments_Lab.ipynb)
 
-### Three Modes
+Build **7 MDP environments** from scratch in Python:
 
-| Mode | What You Learn |
-|------|---------------|
-| **🔍 Explore** | Click any cell → see its state (r,c), reward, transition probabilities for each action, and Q-values |
-| **π Policy** | See policy arrows on every cell. Click to cycle actions and build your own policy |
-| **V Value** | Color-coded heatmap of V(s). Green = high value, red = low value |
+| # | Environment | States | Actions | Key Lesson |
+|---|------------|--------|---------|------------|
+| 1 | GridWorld 5×5 | 22 cells | ←↓→↑ | Walls, goal, pit, spatial navigation |
+| 2 | FrozenLake 4×4 | 16 cells | ←↓→↑ | Slippery ice, holes |
+| 3 | Traffic Light | 6 states | keep/switch | Real-world control |
+| 4 | Thermostat | 3 states | heat/cool/off | Energy vs comfort tradeoff |
+| 5 | Contextual Bandit | 3 contexts | machine A/B/C | Context-dependent rewards |
+| 6 | Inventory Management | 5 levels | order 0/1/2 | Supply chain, stockouts |
+| 7 | Robot Rooms | 4 rooms | go/stay | Locked doors, path planning |
 
-### Key Features
-- **Deterministic vs Stochastic** — slide slip from 0 to 0.6 and watch transition probabilities change
-- **Click any cell** → full breakdown of transitions, rewards, and Q(s,a) for all 4 actions
-- **⚡ Solve Optimal Policy** — finds π* and shows value heatmap
-- **🤖 Run Robot** — animated step-by-step episode
-- **🤖×10 Run 10 Episodes** — shows success rate (deterministic vs stochastic)
-- **✏️ Edit Grid** — paint walls, pits, goals, and start positions to create your own MDP
+**What you'll do:** Inspect transition tables, compute Q-values, visualize value heatmaps, compare deterministic vs stochastic, experiment with γ.
 
-### What to Try
-1. Click cells → inspect State, Action, Reward, Transition
-2. ⚡ Solve with **slip=0** → observe shortest path
-3. Set **slip=0.3** → Solve again → policy becomes cautious near pits!
-4. Run 🤖 with slip=0 → always reaches goal
-5. Run 🤖×10 with slip=0.3 → some episodes fail!
-6. Compare **γ=0.3** vs **γ=0.99** → value function changes dramatically
-7. Edit grid: add more pits near the goal → watch policy adapt
+### Ch3: Dynamic Programming Lab
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mlnjsh/rl-book-labs/blob/main/Ch3_Dynamic_Programming_Lab.ipynb)
+
+Implement **3 core DP algorithms** and run them on all 7 environments:
+
+| Algorithm | What It Does |
+|-----------|-------------|
+| Policy Evaluation | Compute V^π sweep by sweep — watch values converge |
+| Policy Iteration | Evaluate → Improve loop until π* found |
+| Value Iteration | Single Bellman max update — faster convergence |
+
+**What you'll do:** Animated convergence plots, PI vs VI comparison table, γ effect on convergence speed, stochastic policy comparison (5 slip values side by side).
+
+### 📦 Required Libraries
+```
+gymnasium    - RL environments
+numpy        - numerical computation
+matplotlib   - plotting and visualization
+seaborn      - heatmaps for value functions
+pandas       - data tables
+```
+All pre-installed on Google Colab. Just click "Open in Colab" and run!
 
 ---
 
-## 🚀 Ch3: Policy Iteration Visualizer
+## 🌐 Interactive Web Apps
 
-**Step through the Policy Iteration algorithm on a 4×4 FrozenLake grid.**
+### Ch2: MDP Explorer
+[▶ Launch App](https://mlnjsh.github.io/rl-book-labs/ch2/)
 
-### What You Can Do
+Three modes: **🔍 Explore** (click cells → see S,A,R,P), **π Policy** (click to change arrows), **V Value** (heatmap). Features: deterministic/stochastic toggle, editable grid, robot episodes, Q-value inspector.
 
-| Button | What Happens |
-|--------|-------------|
-| **① One Eval Sweep** | Each cell lights up blue as its value updates via the Bellman equation |
-| **① Full Evaluation** | Runs all sweeps until V^π converges |
-| **② Improve Policy** | Arrows change one-by-one to the greedy action — green flash on changes |
-| **▶▶ Auto-Run** | Runs the full evaluate → improve loop with pauses between iterations |
-| **🤖 Run Robot** | Animated robot walks the grid following the current policy |
-| **↺ Reset** | Start fresh with new parameters |
+### Ch3: Policy Iteration Visualizer
+[▶ Launch App](https://mlnjsh.github.io/rl-book-labs/ch3/)
 
-### What to Try
-1. Press ① One Sweep — watch cells light up one by one
-2. Press ① again — values get more accurate each sweep
-3. Press ① Full Eval — converge V^π completely
-4. Press ② — watch arrows change direction!
-5. Repeat ①→② until π* found
-6. Press 🤖 — watch the robot navigate!
-7. Try **γ=0.5** vs **γ=0.99** — compare policies
-8. Try **Slip=0** vs **Slip=0.5** — deterministic vs stochastic
+Step through PI on FrozenLake: **① One Eval Sweep** (cells light up blue), **② Improve** (arrows flash green), **🤖 Run Robot** (animated walk). Speed control, γ and slip sliders.
 
 ---
 
@@ -98,16 +93,15 @@ Each chapter of the book has a companion **browser-based interactive lab** where
 ```
 rl-book-labs/
 ├── README.md
+├── Ch2_MDP_Environments_Lab.ipynb      # 📓 Colab: 7 MDP environments
+├── Ch3_Dynamic_Programming_Lab.ipynb   # 📓 Colab: PI, VI, convergence
 ├── ch2/
-│   └── index.html          # MDP Explorer (5×5 Gridworld)
+│   └── index.html                      # 🌐 Web: MDP Explorer
 ├── ch3/
-│   └── index.html          # Policy Iteration on FrozenLake
-├── ch4/                    # (coming soon)
-├── ch5/                    # (coming soon)
-└── ch6/                    # (coming soon)
+│   └── index.html                      # 🌐 Web: Policy Iteration
+├── ch4/                                # (coming soon)
+└── ch5/                                # (coming soon)
 ```
-
-Each lab is a **single HTML file** — no build step, no dependencies, no frameworks. Just open in any browser.
 
 ---
 
@@ -123,13 +117,14 @@ The only book that takes you from "What is a Markov Decision Process?" all the w
 - 🧠 **Think Like an Agent** boxes for building intuition
 - ⚠️ **Common Misconceptions** boxes to prevent errors
 - 🔬 **Interactive Labs** (this repo!) for hands-on learning
+- 📓 **Colab Notebooks** for coding along
 - 📝 **Quizzes with detailed answer keys** for each chapter
 
 ---
 
 ## 🤝 Contributing
 
-Found a bug in a lab? Have an idea for a new visualization? Contributions are welcome!
+Found a bug? Have an idea for a new visualization? Contributions welcome!
 
 1. Fork the repo
 2. Create a branch (`git checkout -b feature/new-lab`)
