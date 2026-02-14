@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MDP Explorer | RL Book Ch2 Lab</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{min-height:100vh;background:#0b1120;color:#e2e8f0;font-family:Consolas,'Courier New',monospace;padding:14px}
+h1{font-size:22px;font-weight:800;text-align:center;margin:4px 0;
+  background:linear-gradient(90deg,#22d3ee,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.tag{text-align:center;font-size:9px;letter-spacing:4px;color:#64748b;text-transform:uppercase}
+.sub{text-align:center;font-size:11px;color:#64748b;margin-bottom:10px}
+.wrap{display:flex;gap:12px;max-width:1100px;margin:0 auto;flex-wrap:wrap;justify-content:center}
+.col-l{width:200px} .col-c{flex:1;min-width:310px;max-width:500px} .col-r{width:200px}
+.box{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:11px;margin-bottom:9px}
+.box-t{font-size:8px;letter-spacing:2px;text-transform:uppercase;color:#64748b;margin-bottom:5px}
+.lbl{font-size:10px;color:#94a3b8;margin-bottom:2px}
+input[type=range]{width:100%;accent-color:#22d3ee;margin-bottom:5px}
+.btn{display:block;width:100%;padding:9px;border:none;border-radius:7px;font-size:11px;font-weight:700;
+  color:#fff;cursor:pointer;margin-bottom:4px;font-family:inherit}
+.btn:disabled{background:#1e293b!important;color:#475569;cursor:not-allowed;opacity:.5}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;margin:8px 0}
+.cell{aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;cursor:pointer;position:relative;transition:all .2s;
+  border:1px solid rgba(255,255,255,0.05);min-height:60px}
+.cell:hover{border-color:rgba(255,255,255,0.2)}
+.sel{border:2px solid #22d3ee!important;box-shadow:0 0 14px rgba(34,211,238,0.4)}
+.rbot{border:2px solid #f59e0b!important;box-shadow:0 0 18px rgba(245,158,11,0.5)}
+.cpos{position:absolute;top:1px;right:3px;font-size:6px;color:#475569}
+.clbl{position:absolute;top:1px;left:3px;font-size:6px;font-weight:700}
+.cval{position:absolute;bottom:1px;font-size:8px;font-weight:700}
+.tabs{display:flex;gap:2px;margin-bottom:6px}
+.tab{flex:1;padding:5px;border-radius:5px;font-size:10px;font-weight:700;border:none;cursor:pointer;font-family:inherit}
+.trow{display:flex;align-items:center;padding:2px 0;font-size:9px;border-bottom:1px solid rgba(255,255,255,0.03)}
+.log{padding:3px 5px;margin-bottom:2px;border-radius:4px;font-size:8px;color:#94a3b8}
+.badge{display:inline-block;padding:1px 6px;border-radius:8px;font-size:8px;font-weight:700;margin-left:3px}
+@keyframes pop{0%,100%{transform:scale(1)}50%{transform:scale(1.2)}}
+</style>
+</head>
+<body>
+
+<div class="tag">Chapter 2 · Interactive Lab</div>
+<h1>MDP Explorer</h1>
+<div class="sub">States · Actions · Rewards · Transitions · Policies</div>
+
+<div class="wrap">
+  <div class="col-l" id="left"></div>
+  <div class="col-c" id="center"></div>
+  <div class="col-r" id="right"></div>
+</div>
+
+<script>
+var SZ=5, AC=[0,1,2,3], AR=["←","↓","→","↑"], AN=["Left","Down","Right","Up"];
+var DL=[[0,-1],[1,0],[0,1],[-1,0]];
+var FREE=0,WALL=1,GOAL=2,PIT=3,START=4;
+
+var G=[[4,0,0,0,0],[0,1,0,1,0],[0,0,0,0,0],[0,1,0,0,3],[0,0,0,0,2]];
+var gam=0.9, slip=0, mode="explore", sel=null, selA=null;
+var pol=mk(2), V=mk(0);
+var rpos=null, rtrail=[], anim=false, edit=false, paint=1, logs=[];
+
+function mk(v){return Array.from({length:SZ},function(){return Array(SZ).fill(v)})}
+function isT(r,c){return G[r][c]===GOAL||G[r][c]===PIT}
+function isW(r,c){return G[r][c]===WALL}
+function rew(r,c){return G[r][c]===GOAL?10:G[r][c]===PIT?-10:-0.1}
+
+function trans(r,c,a){
+  if(isT(r,c)||isW(r,c)) return [{p:1,r:r,c:c,w:0}];
+  var res=[];
+  if(slip===0){
+    var nr=r+DL[a][0],nc=c+DL[a][1];
+    if(nr<0||nr>=SZ||nc<0||nc>=SZ||isW(nr,nc)){nr=r;nc=c}
+    res.push({p:1,r:nr,c:nc,w:rew(nr,nc)});
+  } else {
+    for(var i=0;i<4;i++){
+      var pr=i===a?1-slip+slip/4:slip/4;
+      if(pr<1e-9) continue;
+      var nr=r+DL[i][0],nc=c+DL[i][1];
+      if(nr<0||nr>=SZ||nc<0||nc>=SZ||isW(nr,nc)){nr=r;nc=c}
+      res.push({p:pr,r:nr,c:nc,w:rew(nr,nc)});
+    }
+  }
+  return res;
+}
+
+function evalV(){
+  for(var it=0;it<500;it++){
+    var nV=V.map(function(r){return r.slice()});
+    var d=0;
+    for(var r=0;r<SZ;r++) for(var c=0;c<SZ;c++){
+      if(isT(r,c)||isW(r,c)) continue;
+      var old=nV[r][c];
+      var ts=trans(r,c,pol[r][c]);
+      var s=0; for(var t=0;t<ts.length;t++) s+=ts[t].p*(ts[t].w+gam*V[ts[t].r][ts[t].c]);
+      nV[r][c]=s;
+      d=Math.max(d,Math.abs(old-s));
+    }
+    V=nV;
+    if(d<1e-6) break;
+  }
+}
+
+function improv(){
+  var ch=0;
+  for(var r=0;r<SZ;r++) for(var c=0;c<SZ;c++){
+    if(isT(r,c)||isW(r,c)) continue;
+    var bA=0,bV=-1e9;
+    for(var a=0;a<4;a++){
+      var ts=trans(r,c,a);
+      var s=0; for(var t=0;t<ts.length;t++) s+=ts[t].p*(ts[t].w+gam*V[ts[t].r][ts[t].c]);
+      if(s>bV){bV=s;bA=a}
+    }
+    if(bA!==pol[r][c]){ch++;pol[r][c]=bA}
+  }
+  return ch;
+}
+
+function qvals(r,c){
+  var q=[];
+  for(var a=0;a<4;a++){
+    var ts=trans(r,c,a);
+    var s=0; for(var t=0;t<ts.length;t++) s+=ts[t].p*(ts[t].w+gam*V[ts[t].r][ts[t].c]);
+    q.push(s);
+  }
+  return q;
+}
+
+function fullPI(){
+  pol=mk(2); V=mk(0);
+  for(var i=0;i<100;i++){evalV();if(improv()===0) return i+1}
+  return 100;
+}
+
+function findS(){for(var r=0;r<SZ;r++) for(var c=0;c<SZ;c++) if(G[r][c]===START) return [r,c]; return [0,0]}
+
+function addL(t,m){logs.unshift({t:t,m:m});if(logs.length>25) logs.pop()}
+
+function vCol(v,mn,mx){
+  if(mx===mn) return "rgba(100,140,200,0.1)";
+  var t2=Math.max(0,Math.min(1,(v-mn)/(mx-mn)));
+  return "rgba("+Math.round(230-190*t2)+","+Math.round(40+190*t2)+","+Math.round(60+70*t2)+",0.3)";
+}
+
+function render(){
+  var flat=[]; for(var r=0;r<SZ;r++) for(var c=0;c<SZ;c++) if(!isW(r,c)) flat.push(V[r][c]);
+  var mn=Math.min.apply(null,flat), mx=Math.max.apply(null,flat);
+  var trS={}; for(var i=0;i<rtrail.length;i++) trS[rtrail[i][0]+","+rtrail[i][1]]=1;
+
+  // GRID
+  var gh="";
+  for(var r=0;r<SZ;r++) for(var c=0;c<SZ;c++){
+    var t=G[r][c], isSel=sel&&sel[0]===r&&sel[1]===c;
+    var hasR=rpos&&rpos[0]===r&&rpos[1]===c;
+    var onTr=trS[r+","+c]&&!hasR;
+    var bg=isW(r,c)?"rgba(30,41,59,0.8)":t===GOAL?"rgba(16,185,129,0.15)"
+      :t===PIT?"rgba(239,68,68,0.12)":t===START?"rgba(34,211,238,0.08)"
+      :mode==="value"&&!isT(r,c)?vCol(V[r][c],mn,mx):"rgba(255,255,255,0.02)";
+    if(onTr) bg="rgba(245,158,11,0.06)";
+    var cls="cell"+(isSel?" sel":"")+(hasR?" rbot":"");
+    var fn=edit?"paint("+r+","+c+")":"pick("+r+","+c+")";
+    var inner="";
+    if(hasR) inner='<div style="font-size:24px;animation:pop .4s">🤖</div>';
+    else if(isW(r,c)) inner='<div style="font-size:18px">🧱</div>';
+    else if(t===GOAL) inner='<div style="font-size:18px">🏆</div>';
+    else if(t===PIT) inner='<div style="font-size:18px">🕳️</div>';
+    else if((mode==="policy"||mode==="value")&&!isT(r,c))
+      inner='<div style="font-size:22px;font-weight:900;color:'+(mode==="value"?"#22d3ee":"#818cf8")+'">'+AR[pol[r][c]]+'</div>';
+    else if(t===START&&!rpos) inner='<div style="font-size:16px">🤖</div>';
+    var lbl=t===START?'<div class="clbl" style="color:#22d3ee">S</div>'
+      :t===GOAL?'<div class="clbl" style="color:#10b981">G</div>'
+      :t===PIT?'<div class="clbl" style="color:#ef4444">P</div>':"";
+    var vhtml="";
+    if(!isW(r,c)){
+      if(mode==="value"&&!isT(r,c)){
+        var vc=V[r][c]>0.1?"#86efac":V[r][c]<-0.5?"#fca5a5":"#64748b";
+        vhtml='<div class="cval" style="color:'+vc+'">'+V[r][c].toFixed(1)+'</div>';
+      } else if(mode==="explore"){
+        var rv=rew(r,c);
+        var rc=rv>0?"#86efac":rv<-0.5?"#fca5a5":"#475569";
+        vhtml='<div class="cval" style="color:'+rc+'">'+(rv>=0?"+":"")+rv+'</div>';
+      }
+    }
+    gh+='<div class="'+cls+'" onclick="'+fn+'" style="background:'+bg+'"><div class="cpos">'+r+','+c+'</div>'+lbl+inner+vhtml+'</div>';
+  }
+
+  // TRANSITION DETAIL
+  var thtml="";
+  if(sel&&!isW(sel[0],sel[1])&&!isT(sel[0],sel[1])){
+    var sr=sel[0],sc=sel[1];
+    var act=selA!==null?selA:pol[sr][sc];
+    var ts=trans(sr,sc,act);
+    var qv=qvals(sr,sc);
+    var maxQ=Math.max.apply(null,qv);
+    thtml='<div class="box" style="border-color:rgba(34,211,238,0.2)">';
+    thtml+='<div class="box-t" style="color:#22d3ee">State ('+sr+','+sc+') · Action: '+AN[act]+' '+AR[act]+'</div>';
+    thtml+='<div style="display:flex;gap:2px;margin-bottom:5px">';
+    for(var a=0;a<4;a++){
+      var ab=a===act?"rgba(34,211,238,0.2)":"rgba(255,255,255,0.03)";
+      var ac2=a===act?"#22d3ee":"#64748b";
+      thtml+='<button onclick="selA='+a+';render()" style="flex:1;padding:4px;border-radius:4px;font-size:12px;border:none;cursor:pointer;font-family:inherit;background:'+ab+';color:'+ac2+';font-weight:'+(a===act?700:400)+'">'+AR[a]+'</button>';
+    }
+    thtml+='</div><div class="box-t">Transitions (where you land)</div>';
+    for(var i=0;i<ts.length;i++){
+      var t2=ts[i];
+      thtml+='<div class="trow"><span style="color:#22d3ee">→ ('+t2.r+','+t2.c+')</span>';
+      thtml+='<span style="margin-left:auto;color:'+(t2.p>0.5?"#22d3ee":"#64748b")+'">'+(t2.p*100).toFixed(0)+'%</span>';
+      thtml+='<span style="width:45px;text-align:right;color:'+(t2.w>0?"#86efac":t2.w<-0.5?"#fca5a5":"#475569")+'">'+(t2.w>=0?"+":"")+t2.w+'</span></div>';
+    }
+    thtml+='<div class="box-t" style="margin-top:5px">Q-Values (expected return per action)</div>';
+    for(var a=0;a<4;a++){
+      var best=Math.abs(qv[a]-maxQ)<0.001;
+      thtml+='<div class="trow"><span>'+AR[a]+' '+AN[a]+'</span>';
+      thtml+='<span style="margin-left:auto;color:'+(best?"#22d3ee":"#64748b")+';font-weight:'+(best?700:400)+'">'+qv[a].toFixed(3)+(best?" ★":"")+'</span></div>';
+    }
+    thtml+='</div>';
+  }
+
+  // LOGS
+  var lh="";
+  if(logs.length===0) lh='<div style="font-size:8px;color:#475569;font-style:italic">Interact to begin...</div>';
+  else for(var i=0;i<logs.length;i++){
+    var l=logs[i];
+    var bc=l.t==="ok"?"#10b981":l.t==="bad"?"#ef4444":l.t==="info"?"#22d3ee":"#3b82f6";
+    lh+='<div class="log" style="border-left:3px solid '+bc+';background:rgba(255,255,255,0.02)">'+l.m+'</div>';
+  }
+
+  // LEFT
+  document.getElementById("left").innerHTML=
+    '<div class="box"><div class="box-t">Environment</div>'
+    +'<div class="lbl">γ = '+gam.toFixed(2)+'</div>'
+    +'<input type="range" min="0.1" max="0.99" step="0.01" value="'+gam+'" oninput="gam=+this.value;recomp()">'
+    +'<div class="lbl">Slip = '+slip.toFixed(2)
+    +' <span class="badge" style="background:'+(slip===0?"rgba(16,185,129,0.15);color:#34d399":"rgba(245,158,11,0.15);color:#fbbf24")+'">'
+    +(slip===0?"Deterministic":"Stochastic")+'</span></div>'
+    +'<input type="range" min="0" max="0.6" step="0.05" value="'+slip+'" oninput="slip=+this.value;recomp()">'
+    +'<div style="font-size:7px;color:#475569">0 = actions always succeed<br>&gt;0 = agent may slip sideways</div></div>'
+
+    +'<div class="box"><div class="box-t">View Mode</div>'
+    +'<div class="tabs">'
+    +'<button class="tab" onclick="mode=\'explore\';render()" style="background:'+(mode==="explore"?"rgba(34,211,238,0.15)":"rgba(255,255,255,0.03)")+';color:'+(mode==="explore"?"#22d3ee":"#64748b")+'">🔍 S,A,R</button>'
+    +'<button class="tab" onclick="mode=\'policy\';render()" style="background:'+(mode==="policy"?"rgba(129,140,248,0.15)":"rgba(255,255,255,0.03)")+';color:'+(mode==="policy"?"#a5b4fc":"#64748b")+'">π Policy</button>'
+    +'<button class="tab" onclick="mode=\'value\';render()" style="background:'+(mode==="value"?"rgba(16,185,129,0.15)":"rgba(255,255,255,0.03)")+';color:'+(mode==="value"?"#34d399":"#64748b")+'">V Value</button>'
+    +'</div>'
+    +'<div style="font-size:8px;color:#475569">'
+    +(mode==="explore"?"Click cells → see state, reward, transitions"
+      :mode==="policy"?"Click cells to change policy arrow"
+      :"Heatmap: green=high, red=low value")+'</div></div>'
+
+    +'<div class="box"><div class="box-t">Actions</div>'
+    +'<button class="btn" style="background:linear-gradient(135deg,#0891b2,#22d3ee)" onclick="solve()"'+(anim?" disabled":"")+'>⚡ Solve Optimal Policy</button>'
+    +'<button class="btn" style="background:linear-gradient(135deg,#b45309,#f59e0b)" onclick="robot()"'+(anim?" disabled":"")+'>🤖 Run Robot</button>'
+    +'<button class="btn" style="background:linear-gradient(135deg,#6d28d9,#a855f7)" onclick="robot10()"'+(anim?" disabled":"")+'>🤖×10 Run 10 Episodes</button>'
+    +'<hr style="border:none;border-top:1px solid rgba(255,255,255,0.06);margin:4px 0">'
+    +'<button class="btn" style="background:'+(edit?"rgba(239,68,68,0.2)":"rgba(255,255,255,0.04)")+';color:'+(edit?"#fca5a5":"#94a3b8")+';border:1px solid '+(edit?"rgba(239,68,68,0.3)":"rgba(255,255,255,0.07)")+'" onclick="toggleEd()">'+(edit?"✓ Done Editing":"✏️ Edit Grid")+'</button>'
+    +(edit?'<div style="display:flex;gap:2px;margin-top:3px">'
+      +'<button onclick="paint=0;render()" style="flex:1;padding:3px;border-radius:3px;font-size:11px;border:'+(paint===0?"2px solid #22d3ee":"1px solid rgba(255,255,255,0.07)")+';background:'+(paint===0?"rgba(34,211,238,0.1)":"transparent")+';cursor:pointer">·</button>'
+      +'<button onclick="paint=1;render()" style="flex:1;padding:3px;border-radius:3px;font-size:11px;border:'+(paint===1?"2px solid #22d3ee":"1px solid rgba(255,255,255,0.07)")+';background:'+(paint===1?"rgba(34,211,238,0.1)":"transparent")+';cursor:pointer">🧱</button>'
+      +'<button onclick="paint=2;render()" style="flex:1;padding:3px;border-radius:3px;font-size:11px;border:'+(paint===2?"2px solid #22d3ee":"1px solid rgba(255,255,255,0.07)")+';background:'+(paint===2?"rgba(34,211,238,0.1)":"transparent")+';cursor:pointer">🏆</button>'
+      +'<button onclick="paint=3;render()" style="flex:1;padding:3px;border-radius:3px;font-size:11px;border:'+(paint===3?"2px solid #22d3ee":"1px solid rgba(255,255,255,0.07)")+';background:'+(paint===3?"rgba(34,211,238,0.1)":"transparent")+';cursor:pointer">🕳️</button>'
+      +'<button onclick="paint=4;render()" style="flex:1;padding:3px;border-radius:3px;font-size:11px;border:'+(paint===4?"2px solid #22d3ee":"1px solid rgba(255,255,255,0.07)")+';background:'+(paint===4?"rgba(34,211,238,0.1)":"transparent")+';cursor:pointer">🤖</button>'
+    +'</div>':"")
+    +'<button class="btn" style="background:transparent;color:#64748b;border:1px solid rgba(255,255,255,0.07);margin-top:3px" onclick="resetAll()">↺ Reset</button>'
+    +'</div>';
+
+  // CENTER
+  document.getElementById("center").innerHTML=
+    '<div class="box" style="padding:8px"><div class="grid">'+gh+'</div>'
+    +'<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:4px">'
+    +'<div style="display:flex;align-items:center;gap:2px"><div style="width:7px;height:7px;border-radius:2px;background:rgba(34,211,238,0.4)"></div><span style="font-size:7px;color:#64748b">Start</span></div>'
+    +'<div style="display:flex;align-items:center;gap:2px"><div style="width:7px;height:7px;border-radius:2px;background:rgba(16,185,129,0.4)"></div><span style="font-size:7px;color:#64748b">Goal +10</span></div>'
+    +'<div style="display:flex;align-items:center;gap:2px"><div style="width:7px;height:7px;border-radius:2px;background:rgba(239,68,68,0.3)"></div><span style="font-size:7px;color:#64748b">Pit −10</span></div>'
+    +'<div style="display:flex;align-items:center;gap:2px"><div style="width:7px;height:7px;border-radius:2px;background:rgba(30,41,59,0.6)"></div><span style="font-size:7px;color:#64748b">Wall</span></div>'
+    +'<div style="display:flex;align-items:center;gap:2px"><div style="width:7px;height:7px;border-radius:2px;background:rgba(245,158,11,0.5)"></div><span style="font-size:7px;color:#64748b">Robot</span></div>'
+    +'</div></div>'
+    +thtml
+    +'<div style="background:rgba(124,58,237,0.04);border:1px solid rgba(124,58,237,0.12);border-radius:8px;padding:10px;margin-top:6px">'
+    +'<div style="font-size:7px;letter-spacing:2px;color:#a855f7;text-transform:uppercase;margin-bottom:3px">'
+    +(mode==="explore"?"MDP Components":mode==="policy"?"Policy Concepts":"Value Function")+'</div>'
+    +'<div style="font-size:9px;color:#c4b5fd;line-height:1.6">'
+    +(mode==="explore"?
+      '<b style="color:#22d3ee">State s</b> = cell (r,c). <b style="color:#22d3ee">Action a</b> = {←↓→↑}.<br>'
+      +'<b style="color:#22d3ee">Reward R</b> = +10 goal, −10 pit, −0.1 step.<br>'
+      +'<b style="color:#22d3ee">P(s\'|s,a)</b> = '+(slip===0?'deterministic — action always works.':'stochastic — '+((1-slip)*100).toFixed(0)+'% intended, '+(slip/4*100).toFixed(0)+'% each other dir.')+'<br>'
+      +'Click any cell, then pick an action to see exact transitions!'
+     :mode==="policy"?
+      '<b style="color:#a5b4fc">Policy π(s)</b> = which action in each state.<br>'
+      +'Click a cell to <b>cycle its arrow</b>. Press ⚡ to find π*.<br>'
+      +(slip>0?'With slip='+slip.toFixed(2)+', optimal policy avoids pit-adjacent cells!':'With slip=0, shortest safe path to goal.')
+     :'<b style="color:#34d399">V(s)</b> = expected discounted return from state s.<br>'
+      +'Green = high value (near goal). Red = low (near pit).<br>'
+      +'γ='+gam.toFixed(2)+': '+(gam>0.9?'agent plans far ahead.':gam<0.5?'agent is short-sighted.':'moderate planning horizon.'))
+    +'</div></div>';
+
+  // RIGHT
+  document.getElementById("right").innerHTML=
+    '<div class="box"><div class="box-t">Event Log</div><div style="max-height:200px;overflow-y:auto">'+lh+'</div></div>'
+    +'<div class="box" style="border-color:rgba(245,158,11,0.15)"><div class="box-t" style="color:#f59e0b">Experiments to Try</div>'
+    +'<div style="font-size:8px;color:#fbbf24;line-height:1.6">'
+    +'1. Click cells → inspect S, A, R, P<br>'
+    +'2. ⚡ Solve with slip=0 → shortest path<br>'
+    +'3. Set slip=0.3 → Solve → cautious policy!<br>'
+    +'4. 🤖 Run with slip=0 → always wins<br>'
+    +'5. 🤖×10 with slip=0.3 → some fail!<br>'
+    +'6. γ=0.3 vs γ=0.99 → value changes<br>'
+    +'7. Edit: add pits near goal → policy changes<br>'
+    +'8. Compare deterministic vs stochastic</div></div>'
+    +'<div class="box" style="border-color:rgba(124,58,237,0.15)"><div class="box-t" style="color:#a855f7">MDP Tuple</div>'
+    +'<div style="font-size:9px;color:#c4b5fd;line-height:1.7">'
+    +'<b>M</b> = ⟨S, A, P, R, γ⟩<br>'
+    +'<b>S</b> = non-wall cells<br>'
+    +'<b>A</b> = {←, ↓, →, ↑}<br>'
+    +'<b>P</b>(s\'|s,a) = transitions<br>'
+    +'<b>R</b>(s,a,s\') = rewards<br>'
+    +'<b>γ</b> = '+gam.toFixed(2)+'</div></div>';
+}
+
+// === INTERACTION ===
+function pick(r,c){
+  if(edit){G[r][c]=paint;recomp();return}
+  if(mode==="policy"&&!isW(r,c)&&!isT(r,c)){
+    pol[r][c]=(pol[r][c]+1)%4;
+    evalV();
+    addL("info","Policy ("+r+","+c+") → "+AN[pol[r][c]]);
+  }
+  sel=[r,c]; selA=null;
+  if(!isW(r,c)) addL("info","State ("+r+","+c+") R="+rew(r,c));
+  render();
+}
+
+function solve(){
+  if(anim) return;
+  var it=fullPI();
+  addL("ok","⚡ Optimal π* in "+it+" iters");
+  mode="value"; render();
+}
+
+function robot(){
+  if(anim) return;
+  anim=true;
+  var s=findS(), r=s[0], c=s[1], steps=0;
+  rtrail=[[r,c]]; rpos=[r,c]; render();
+  function tick(){
+    if(isT(r,c)||steps>60){
+      var w=G[r][c]===GOAL;
+      addL(w?"ok":"bad","🤖 "+(w?"🎉 GOAL!":"💀 PIT!")+" ("+steps+" steps)");
+      setTimeout(function(){rpos=null;rtrail=[];anim=false;render()},1200);
+      return;
+    }
+    var a=pol[r][c], ts=trans(r,c,a), rnd=Math.random(), cum=0;
+    for(var i=0;i<ts.length;i++){cum+=ts[i].p;if(rnd<cum){r=ts[i].r;c=ts[i].c;break}}
+    steps++; rtrail.push([r,c]); rpos=[r,c]; render();
+    setTimeout(tick,350);
+  }
+  setTimeout(tick,350);
+}
+
+function robot10(){
+  if(anim) return;
+  var wins=0;
+  for(var ep=0;ep<10;ep++){
+    var s=findS(),r=s[0],c=s[1],st=0;
+    while(!isT(r,c)&&st<80){
+      var a=pol[r][c],ts=trans(r,c,a),rnd=Math.random(),cum=0;
+      for(var i=0;i<ts.length;i++){cum+=ts[i].p;if(rnd<cum){r=ts[i].r;c=ts[i].c;break}}
+      st++;
+    }
+    if(G[r][c]===GOAL) wins++;
+  }
+  addL("info","🤖×10: "+wins+"/10 reached goal ("+(wins*10)+"%)");
+  render();
+}
+
+function toggleEd(){edit=!edit;if(!edit) recomp();render()}
+function recomp(){evalV();render()}
+function resetAll(){
+  G=[[4,0,0,0,0],[0,1,0,1,0],[0,0,0,0,0],[0,1,0,0,3],[0,0,0,0,2]];
+  gam=0.9;slip=0;mode="explore";sel=null;selA=null;pol=mk(2);V=mk(0);
+  rpos=null;rtrail=[];anim=false;edit=false;logs=[];evalV();render();
+}
+
+evalV();
+render();
+</script>
+</body>
+</html>
