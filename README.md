@@ -26,6 +26,7 @@ Each chapter of the book has a companion **browser-based interactive lab** where
 
 | Chapter | Lab | Concepts Covered | Try It |
 |---------|-----|-----------------|--------|
+| Ch 2 | **MDP Explorer** | States, Actions, Rewards, Transitions, Deterministic vs Stochastic, Policy, Value Function | [▶ Launch](https://mlnjsh.github.io/rl-book-labs/ch2/) |
 | Ch 3 | **Policy Iteration on FrozenLake** | Bellman equations, policy evaluation (sweep-by-sweep), policy improvement, convergence | [▶ Launch](https://mlnjsh.github.io/rl-book-labs/ch3/) |
 | Ch 4 | Monte Carlo Blackjack *(coming soon)* | First-visit MC, exploring starts, episode replay | — |
 | Ch 5 | TD Learning & SARSA *(coming soon)* | TD(0), SARSA, Q-learning, cliff walking | — |
@@ -34,9 +35,40 @@ Each chapter of the book has a companion **browser-based interactive lab** where
 
 ---
 
+## 🌐 Ch2: MDP Explorer
+
+**Understand the building blocks of every RL algorithm.** Explore a 5×5 Gridworld MDP interactively.
+
+### Three Modes
+
+| Mode | What You Learn |
+|------|---------------|
+| **🔍 Explore** | Click any cell → see its state (r,c), reward, transition probabilities for each action, and Q-values |
+| **π Policy** | See policy arrows on every cell. Click to cycle actions and build your own policy |
+| **V Value** | Color-coded heatmap of V(s). Green = high value, red = low value |
+
+### Key Features
+- **Deterministic vs Stochastic** — slide slip from 0 to 0.6 and watch transition probabilities change
+- **Click any cell** → full breakdown of transitions, rewards, and Q(s,a) for all 4 actions
+- **⚡ Solve Optimal Policy** — finds π* and shows value heatmap
+- **🤖 Run Robot** — animated step-by-step episode
+- **🤖×10 Run 10 Episodes** — shows success rate (deterministic vs stochastic)
+- **✏️ Edit Grid** — paint walls, pits, goals, and start positions to create your own MDP
+
+### What to Try
+1. Click cells → inspect State, Action, Reward, Transition
+2. ⚡ Solve with **slip=0** → observe shortest path
+3. Set **slip=0.3** → Solve again → policy becomes cautious near pits!
+4. Run 🤖 with slip=0 → always reaches goal
+5. Run 🤖×10 with slip=0.3 → some episodes fail!
+6. Compare **γ=0.3** vs **γ=0.99** → value function changes dramatically
+7. Edit grid: add more pits near the goal → watch policy adapt
+
+---
+
 ## 🚀 Ch3: Policy Iteration Visualizer
 
-**The flagship lab.** Step through the Policy Iteration algorithm on a 4×4 FrozenLake grid.
+**Step through the Policy Iteration algorithm on a 4×4 FrozenLake grid.**
 
 ### What You Can Do
 
@@ -49,19 +81,15 @@ Each chapter of the book has a companion **browser-based interactive lab** where
 | **🤖 Run Robot** | Animated robot walks the grid following the current policy |
 | **↺ Reset** | Start fresh with new parameters |
 
-### Parameters to Experiment With
-
-- **Discount factor γ** (0.1 → 0.99): How much does the agent care about the future?
-- **Slip probability** (0 → 0.5): How stochastic is the environment?
-- **Animation speed** (🐢 Slow → ⚡ Fast): Control the visualization pace
-
 ### What to Try
-
-1. Set **γ = 0.5** → run to convergence → note the policy
-2. Set **γ = 0.99** → run again → compare: the agent plans further ahead!
-3. Set **Slip = 0** → deterministic → the optimal path is obvious
-4. Set **Slip = 0.5** → highly stochastic → the policy becomes more cautious
-5. Run 🤖 multiple times with high slip → watch different outcomes each time
+1. Press ① One Sweep — watch cells light up one by one
+2. Press ① again — values get more accurate each sweep
+3. Press ① Full Eval — converge V^π completely
+4. Press ② — watch arrows change direction!
+5. Repeat ①→② until π* found
+6. Press 🤖 — watch the robot navigate!
+7. Try **γ=0.5** vs **γ=0.99** — compare policies
+8. Try **Slip=0** vs **Slip=0.5** — deterministic vs stochastic
 
 ---
 
@@ -69,15 +97,17 @@ Each chapter of the book has a companion **browser-based interactive lab** where
 
 ```
 rl-book-labs/
-├── index.html              # Landing page with links to all labs
+├── README.md
+├── ch2/
+│   └── index.html          # MDP Explorer (5×5 Gridworld)
 ├── ch3/
-│   └── index.html          # Policy Iteration on FrozenLake (standalone)
+│   └── index.html          # Policy Iteration on FrozenLake
 ├── ch4/                    # (coming soon)
 ├── ch5/                    # (coming soon)
-└── README.md
+└── ch6/                    # (coming soon)
 ```
 
-Each lab is a **single HTML file** — no build step, no dependencies, no frameworks to install. Just pure HTML + CSS + JavaScript.
+Each lab is a **single HTML file** — no build step, no dependencies, no frameworks. Just open in any browser.
 
 ---
 
@@ -118,3 +148,4 @@ MIT License — free to use, modify, and distribute.
   <i>Built with ❤️ as a companion to the book.</i><br>
   <i>"The best way to learn an algorithm is to watch it think."</i>
 </p>
+
