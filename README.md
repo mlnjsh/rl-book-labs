@@ -148,4 +148,3 @@ MIT License — free to use, modify, and distribute.
   <i>Built with ❤️ as a companion to the book.</i><br>
   <i>"The best way to learn an algorithm is to watch it think."</i>
 </p>
-
