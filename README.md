@@ -187,3 +187,34 @@ MIT License — free to use, modify, and distribute.
   <i>Built with ❤️ as a companion to the book.</i><br>
   <i>"The best way to learn an algorithm is to watch it think."</i>
 </p>
+
+
+---
+
+## Contributors & Domain Experts
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/mlnjsh">
+        <img src="https://github.com/mlnjsh.png" width="80px;" alt="Milan Amrut Joshi"/><br />
+        <sub><b>Milan Amrut Joshi</b></sub>
+      </a><br />
+      <sub>Project Author</sub>
+    </td>
+    <td align="center">
+      <a href="https://github.com/ShangtongZhang">
+        <img src="https://github.com/ShangtongZhang.png" width="80px;" alt="Shangtong Zhang"/><br />
+        <sub><b>Shangtong Zhang</b></sub>
+      </a><br />
+      <sub>RL algorithm implementations</sub>
+    </td>
+    <td align="center">
+      <a href="https://github.com/dennybritz">
+        <img src="https://github.com/dennybritz.png" width="80px;" alt="Denny Britz"/><br />
+        <sub><b>Denny Britz</b></sub>
+      </a><br />
+      <sub>RL course implementations</sub>
+    </td>
+  </tr>
+</table>
